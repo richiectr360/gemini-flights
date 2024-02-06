@@ -1,6 +1,6 @@
 # Gemini Flight Manager
 
-## Overview
+## What is Gemini Flights.
 
 Gemini Flight Manager is a comprehensive backend system built using FastAPI, designed for managing and simulating flight-related operations. This system provides a robust platform for handling various aspects of flight management, including flight generation, search, and booking functionalities.
 
@@ -13,6 +13,13 @@ Key features of Gemini Flight Manager include:
 Designed with extensibility and scalability in mind, Gemini Flight Manager is well-suited for both educational purposes and as a foundation for more complex flight management applications.
 
 **For the purposes of Gemini Function Calling, you will only need `search_flights` and `book_flight` functions.
+
+## Why was this product built?
+
+Think of this as chatGPT for air travel.
+
+
+
 
 ## Installation
 
