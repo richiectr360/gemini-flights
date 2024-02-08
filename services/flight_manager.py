@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
-from models import Flight, FlightModel, FlightSearchCriteria, get_db
+from services.models import Flight, FlightModel, FlightSearchCriteria, get_db
 import logging
 
 # Create a logger for this module
@@ -14,76 +14,6 @@ logger = logging.getLogger(__name__)
 
 ####################################################################################################################################
 
-# Define the book_flight function
-# flight_id: int, seat_type: str, num_seats: int = 1
-def book_flight(flight_id: int, seat_type: str, num_seats: int = 1):
-    # Send a POST request to the /book_flight endpoint
-    url = "http://localhost:8000/book_flight"
-    payload = {
-        "flight_id": flight_id,
-        "seat_type": seat_type,
-        "num_seats": num_seats
-    }
-    response = requests.post(url, json=payload)
-    return response.json()
-
-# Define Tool for searching flights
-get_search_flights = generative_models.FunctionDeclaration(
-    name="get_search_flights",
-    description="Tool for searching a flight with origin, destination, and departure date",
-    parameters={
-        "type": "object",
-        "properties": {
-            "origin": {
-                "type": "string",
-                "description": "The airport of departure for the flight given in airport code such as LAX, SFO, BOS, etc."
-            },
-            "destination": {
-                "type": "string",
-                "description": "The airport of destination for the flight given in airport code such as LAX, SFO, BOS, etc."
-            },
-            "departure_date": {
-                "type": "string",
-                "format": "date",
-                "description": "The date of departure for the flight in YYYY-MM-DD format"
-            },
-        },
-        "required": [
-            "origin",
-            "destination",
-            "departure_date"
-        ]
-    },
-)
-
-# Define Tool for booking a flight
-book_flight_declaration = generative_models.FunctionDeclaration(
-    name="book_flight",
-    description="Books a specified number of seats on a flight.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "flight_id": {
-                "type": "integer",
-                "description": "The unique identifier of the flight to book."
-            },
-            "seat_type": {
-                "type": "string",
-                "description": "The class of the seat to book (economy, business, or first_class)."
-            },
-            "num_seats": {
-                "type": "integer",
-                "description": "The number of seats to book."
-            }
-        },
-        "required": ["flight_id", "seat_type"]
-    }
-)
-
-# Bind both function declarations to Gemini Tool
-search_tool = generative_models.Tool(
-    function_declarations=[get_search_flights, book_flight_declaration],
-)
 
 ####################################################################################################################################
 

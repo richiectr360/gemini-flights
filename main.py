@@ -4,7 +4,7 @@ from typing import List, Optional
 import logging
 
 from services.flight_manager import generate_flights, handle_flight_search, handle_flight_book
-import models
+import services.models as models
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
