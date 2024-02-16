@@ -6,16 +6,11 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
-from services.models import Flight, FlightModel, FlightSearchCriteria, get_db
+from models import Flight, FlightModel, FlightSearchCriteria, get_db
 import logging
 
 # Create a logger for this module
 logger = logging.getLogger(__name__)
-
-####################################################################################################################################
-
-
-####################################################################################################################################
 
 def generate_flight_number():
     # Example: AA342
@@ -84,7 +79,6 @@ def generate_flights(flight_input, num_flights, db: Session):
         
     return flights
 
-#Actual handle for the flight search
 def handle_flight_search(criteria, db: Session, page: Optional[int] = 1, page_size: Optional[int] = 10):
     """
     Handles the search for flights based on various criteria. The function applies filters for
@@ -196,10 +190,6 @@ def handle_flight_search(criteria, db: Session, page: Optional[int] = 1, page_si
         "total_pages": total_pages
     }
 
-
-#Booking specififed number of seats on a flight.
-#After picking what flights they wanna go on to, they pick an origin and destination.
-#DONT TOUCH THIS PART
 def handle_flight_book(flight_id: int, seat_type: str, num_seats: int = 1, db: Session = Depends(get_db)):
     """
     Books a specified number of seats on a flight.
@@ -249,13 +239,11 @@ def handle_flight_book(flight_id: int, seat_type: str, num_seats: int = 1, db: S
     # Commit the booking to the database
     db.commit()
     
-    success_message = f"Successfully booked {num_seats} {seat_type} seat(s) on {flight.airline} flight on {flight.date} from {flight.origin} to {flight.destination}. Total cost: ${total_cost}."
+    success_message = f"Successfully booked {num_seats} {seat_type} seat(s) on {flight.airline} flight on {flight.departure_date} from {flight.origin} to {flight.destination}. Total cost: ${total_cost}."
 
     # Return a success message
     return {"message": success_message, "flight_info": flight}
 
-#GET request.
-#Also do smth like this that sends get request to fastapi endpoint which
 def search_flights(**params):
     """
     Sends a GET request to a FastAPI endpoint to search for flights based on various criteria.
@@ -299,10 +287,25 @@ def search_flights(**params):
     return response.json()
 
 
-#Task 4 and 5.
-#Create a similar function like search_flight that is sending get request to FASTAPI endpoint.
-#which is the handle_flight_book function here.     
-#Check models.py to check actual database.
+#######################
 
-#http://localhost:8000/docs
-
+def book_flight(criteria):
+    endpoint_url = 'http://127.0.0.1:8000/book_flight'
+    
+    # Replace 'YOUR_REQUEST_BODY' with the actual request body
+    request_body = {
+        'flight_id': criteria.flight_id,
+        'seat_type': criteria.seat_type,
+        'num_seats': criteria.num_seats
+    }
+    
+    # Send the POST request
+    response = requests.post(endpoint_url, json=request_body)
+    
+    # Handle the response as needed
+    if response.status_code == 200:
+        # Flight booked successfully
+        return "Flight booked successfully"
+    else:
+        # Handle the error
+        return "Failed to book the flight"

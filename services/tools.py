@@ -3,6 +3,8 @@ import streamlit as st
 from vertexai.preview import generative_models
 from vertexai.preview.generative_models import GenerativeModel, Tool, Part, Content, ChatSession
 from flight_manager import search_flights
+from flight_manager import book_flight
+from flight_manager import handle_flight_book
 
 project = "groovy-datum-412123"
 vertexai.init(project = project)
@@ -10,7 +12,7 @@ vertexai.init(project = project)
 # Declare Tool
 get_search_flights = generative_models.FunctionDeclaration(
     name="get_search_flights",
-    description="Tool for searching a flight with origin, destination, and departure date",
+    description="Tools for searching a flight with origin, destination, and departure date",
     parameters={
         "type": "object",
         "properties": {
@@ -36,8 +38,8 @@ get_search_flights = generative_models.FunctionDeclaration(
     },
 )
 
-# Define Tool for booking a flight
-book_flight_declaration = generative_models.FunctionDeclaration(
+#Define Tool for booking a flight
+book_flight = generative_models.FunctionDeclaration(
     name="book_flight",
     description="Books a specified number of seats on a flight.",
     parameters={
@@ -62,7 +64,7 @@ book_flight_declaration = generative_models.FunctionDeclaration(
 
 # Bind both function declarations to Gemini Tool
 search_tool = generative_models.Tool(
-    function_declarations=[get_search_flights, book_flight_declaration],
+    function_declarations=[get_search_flights, book_flight],
 )
 
 # # Instantiate tool and model with tools
@@ -70,7 +72,7 @@ search_tool = generative_models.Tool(
 #     function_declarations=[get_search_flights],
 # )
 
-config = generative_models.GenerationConfig(temperature=0.4)
+config = generative_models.GenerationConfig(temperature=0)
 # Load model with config
 model = GenerativeModel(
     "gemini-pro",
@@ -110,10 +112,55 @@ def handle_response(response):
     else:
         # Return just text
         return response.candidates[0].content.parts[0].text
+    
+################################################################################
+
+def handle_response(response):
+    
+    if response.candidates[0].content.parts[0].function_call.args:
+        response_args = response.candidates[0].content.parts[0].function_call.args
+        
+        function_params = {}
+        for key in response_args:
+            value = response_args[key]
+            function_params[key] = value
+        
+        if response.candidates[0].content.parts[0].function_call.name == "book_flight":
+            try:
+                # Call the book_flight function with the provided arguments
+                result = handle_flight_book(**function_params)
+                # Construct a response message
+                response_message = f"Booked {function_params['num_seats']} {function_params['seat_type']} seat(s) for flight ID {function_params['flight_id']}: {result}"
+            except Exception as e:
+                # Handle any exceptions
+                response_message = f"Failed to book flight: {str(e)}"
+            
+            # Return the response message
+            return response_message
+        else:
+            # Handle other function calls
+            # For example, handle get_search_flights function call
+            results = search_flights(**function_params)
+            if results:
+                intermediate_response = chat.send_message(
+                    Part.from_function_response(
+                        name="get_search_flights",
+                        response=results
+                    )
+                )
+                return intermediate_response.candidates[0].content.parts[0].text
+            else:
+                return "Search Failed"
+    else:
+        return response.candidates[0].content.parts[0].text
+
+    
+################################################################################
 
 # helper function to display and send streamlit messages
 def llm_function(chat: ChatSession, query):
     response = chat.send_message(query) #invoke google gemini, whateve the good has set
+    print(response)
     output = handle_response(response) #To get an output.
     
     #For streamlit, used in 
@@ -159,7 +206,7 @@ for index, message in enumerate(st.session_state.messages):
 # For Initial message startup
 if len(st.session_state.messages) == 0:
     # Invoke initial message
-    initial_prompt = "Introduce yourself as a flights management assistant, ReX, powered by Google Gemini and designed to search/book flights. You use emojis to be interactive. For reference, the year for dates is 2024"
+    initial_prompt = "Introduce yourself as a flights management assistant, ReX, powered by Google Gemini and designed to search/book flights.Use your tools to handle queries like search flights. When using the tool, it will immediately return results. You can use emojis to be interactive. For reference, the year for dates is 2024"
 
     llm_function(chat, initial_prompt)
 
