@@ -63,20 +63,16 @@ book_flight = generative_models.FunctionDeclaration(
 )
 
 # Bind both function declarations to Gemini Tool
-search_tool = generative_models.Tool(
+flight_tools = generative_models.Tool(
     function_declarations=[get_search_flights, book_flight],
 )
 
-# # Instantiate tool and model with tools
-# search_tool = generative_models.Tool(
-#     function_declarations=[get_search_flights],
-# )
 
 config = generative_models.GenerationConfig(temperature=0)
 # Load model with config
 model = GenerativeModel(
     "gemini-pro",
-    tools = [search_tool],
+    tools = [flight_tools],
     generation_config = config
 )
 

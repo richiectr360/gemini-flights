@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from models import Flight, FlightModel, FlightSearchCriteria, get_db
 import logging
 
-# Create a logger for this module
 logger = logging.getLogger(__name__)
 
 def generate_flight_number():
@@ -148,8 +147,6 @@ def handle_flight_search(criteria, db: Session, page: Optional[int] = 1, page_si
             query = query.filter(Flight.business_seat_cost.between(min_cost, max_cost))
         elif criteria.seat_type == 'first_class':
             query = query.filter(Flight.first_class_cost.between(min_cost, max_cost))
-
-        # Calculate the total count of matching records
 
         # Calculate the total count of matching records
     total_count = query.count()
