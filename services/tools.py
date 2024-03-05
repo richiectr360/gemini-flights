@@ -1,10 +1,10 @@
 import vertexai
+from google.cloud import aiplatform
 import streamlit as st
 from vertexai.preview import generative_models
 from vertexai.preview.generative_models import GenerativeModel, Tool, Part, Content, ChatSession
-from flight_manager import search_flights
-from flight_manager import book_flight
-from flight_manager import handle_flight_book
+from flight_manager import search_flights, book_flights
+from fastapi import HTTPException 
 
 project = "groovy-datum-412123"
 vertexai.init(project = project)
@@ -39,36 +39,39 @@ get_search_flights = generative_models.FunctionDeclaration(
 )
 
 #Define Tool for booking a flight
-book_flight = generative_models.FunctionDeclaration(
-    name="book_flight",
-    description="Books a specified number of seats on a flight.",
+get_book_flights = generative_models.FunctionDeclaration(
+    name="get_book_flights",
+    description="Tool to book flight with flight number, seat type, and number of seats to book.",
     parameters={
         "type": "object",
         "properties": {
-            "flight_id": {
-                "type": "integer",
-                "description": "The unique identifier of the flight to book."
+            "flight_number": {
+                "type": "string",
+                "description": "The flight number of the ticket we will book."
             },
             "seat_type": {
                 "type": "string",
-                "description": "The class of the seat to book (economy, business, or first_class)."
+                "description": "The type of seat such as 'economy', 'first class' or 'business class'."
             },
             "num_seats": {
                 "type": "integer",
-                "description": "The number of seats to book."
-            }
+                "description": "The number of seats we will book"
+            },
         },
-        "required": ["flight_id", "seat_type"]
-    }
+        "required": [
+            "origin",
+            "destination",
+            "departure_date"
+        ]
+    },
 )
 
 # Bind both function declarations to Gemini Tool
 flight_tools = generative_models.Tool(
-    function_declarations=[get_search_flights, book_flight],
+    function_declarations=[get_search_flights, get_book_flights],
 )
 
-
-config = generative_models.GenerationConfig(temperature=0)
+config = generative_models.GenerationConfig(temperature=0.3)
 # Load model with config
 model = GenerativeModel(
     "gemini-pro",
@@ -76,66 +79,18 @@ model = GenerativeModel(
     generation_config = config
 )
 
-# helper function to unpack responses
-def handle_response(response):
-    
+
+def handle_response(response):    
     # Check for function call with intermediate step, always return response
     if response.candidates[0].content.parts[0].function_call.args:
         # Function call exists, unpack and load into a function
-        response_args = response.candidates[0].content.parts[0].function_call.args
-        
-        #Pack to dictionary
+        response_args = response.candidates[0].content.parts[0].function_call.args        
         function_params = {}
         for key in response_args:
             value = response_args[key]
-            function_params[key] = value
-        
-        #Unpack the dictionary here
-        results = search_flights(**function_params)
-        
-        #If there are results, we send it.
-        if results:
-            intermediate_response = chat.send_message(
-                Part.from_function_response(
-                    name="get_search_flights",
-                    response = results
-                )
-            )
-            
-            return intermediate_response.candidates[0].content.parts[0].text
-        else:
-            return "Search Failed"
-    else:
-        # Return just text
-        return response.candidates[0].content.parts[0].text
-    
-################################################################################
-
-def handle_response(response):
-    
-    if response.candidates[0].content.parts[0].function_call.args:
-        response_args = response.candidates[0].content.parts[0].function_call.args
-        
-        function_params = {}
-        for key in response_args:
-            value = response_args[key]
-            function_params[key] = value
-        
-        if response.candidates[0].content.parts[0].function_call.name == "book_flight":
-            try:
-                # Call the book_flight function with the provided arguments
-                result = handle_flight_book(**function_params)
-                # Construct a response message
-                response_message = f"Booked {function_params['num_seats']} {function_params['seat_type']} seat(s) for flight ID {function_params['flight_id']}: {result}"
-            except Exception as e:
-                # Handle any exceptions
-                response_message = f"Failed to book flight: {str(e)}"
-            
-            # Return the response message
-            return response_message
-        else:
-            # Handle other function calls
-            # For example, handle get_search_flights function call
+            function_params[key] = value        
+        #If "get_search_flights", execute function of search_flights
+        if "get_search_flights" in response.candidates[0].content.parts[0].function_call.name:
             results = search_flights(**function_params)
             if results:
                 intermediate_response = chat.send_message(
@@ -147,7 +102,23 @@ def handle_response(response):
                 return intermediate_response.candidates[0].content.parts[0].text
             else:
                 return "Search Failed"
+        #If "get_book_flights", execute function of book_flights
+        elif "get_book_flights" in response.candidates[0].content.parts[0].function_call.name:
+            results = book_flights(**function_params)
+            if results:
+                intermediate_response = chat.send_message(
+                    Part.from_function_response(
+                        name="get_book_flights",
+                        response=results
+                    )
+                )
+                return intermediate_response.candidates[0].content.parts[0].text
+            else:
+                return "Booking unsuccessful."
+        else: 
+            return "Error discovered."
     else:
+        # Return just text
         return response.candidates[0].content.parts[0].text
 
     
@@ -213,3 +184,39 @@ if query:
     with st.chat_message("user"):
         st.markdown(query)
     llm_function(chat, query)
+
+
+# helper function to unpack responses
+# def handle_response(response):
+    
+#     # Check for function call with intermediate step, always return response
+#     if response.candidates[0].content.parts[0].function_call.args:
+#         # Function call exists, unpack and load into a function
+#         response_args = response.candidates[0].content.parts[0].function_call.args
+        
+#         #Pack to dictionary
+#         function_params = {}
+#         for key in response_args:
+#             value = response_args[key]
+#             function_params[key] = value
+        
+#         #Unpack the dictionary here
+#         results = search_flights(**function_params)
+        
+#         #If there are results, we send it.
+#         if results:
+#             intermediate_response = chat.send_message(
+#                 Part.from_function_response(
+#                     name="get_search_flights",
+#                     response = results
+#                 )
+#             )
+            
+#             return intermediate_response.candidates[0].content.parts[0].text
+#         else:
+#             return "Search Failed"
+#     else:
+#         # Return just text
+#         return response.candidates[0].content.parts[0].text
+    
+################################################################################

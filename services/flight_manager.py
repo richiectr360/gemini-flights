@@ -6,8 +6,17 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
-from models import Flight, FlightModel, FlightSearchCriteria, get_db
+from models import Flight, FlightModel, FlightSearchCriteria, get_db, FlightBookCriteria
 import logging
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+DATABASE_URL = "sqlite:///./flights.db"
+engine = create_engine(DATABASE_URL)
+
+# Starting the session
+Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+DATABASE_SESSION = Session()
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +83,7 @@ def generate_flights(flight_input, num_flights, db: Session):
         db.add(new_flight)
         db.commit()
         db.refresh(new_flight)
+        flights.append(new_flight)
         logging.info(f"Successfully added flight: {new_flight.flight_number}")
         
     return flights
@@ -284,25 +294,55 @@ def search_flights(**params):
     return response.json()
 
 
-#######################
-
-def book_flight(criteria):
-    endpoint_url = 'http://127.0.0.1:8000/book_flight'
+####################### OLD
+# def book_flight(criteria):
+#     endpoint_url = 'http://127.0.0.1:8000/book_flight'
     
-    # Replace 'YOUR_REQUEST_BODY' with the actual request body
-    request_body = {
-        'flight_id': criteria.flight_id,
-        'seat_type': criteria.seat_type,
-        'num_seats': criteria.num_seats
+#     # Replace 'YOUR_REQUEST_BODY' with the actual request body
+#     request_body = {
+#         'flight_id': criteria.flight_id,
+#         'seat_type': criteria.seat_type,
+#         'num_seats': criteria.num_seats
+#     }
+    
+#     # Send the POST request
+#     response = requests.post(endpoint_url, json=request_body)
+    
+#     # Handle the response as needed
+#     if response.status_code == 200:
+#         # Flight booked successfully
+#         return "Flight booked successfully"
+#     else:
+#         # Handle the error
+#         return "Failed to book the flight"
+    
+##############
+    
+def book_flights(**params):
+    criteria = FlightBookCriteria(**params)
+    flight_id = retrieve_flightnumbers_flightid(criteria.flight_number)
+    if not flight_id: 
+        return None
+    #URL
+    url = f"http://127.0.0.1:8000/book_flight?flight_id={flight_id}&seat_type={criteria.seat_type}&num_seats={criteria.num_seats}"
+    # Payload to be sent for the POST request
+    payload = {
+        "flight_id": flight_id,
+        "seat_type": criteria.seat_type,
+        "num_seats": criteria.num_seats
     }
-    
-    # Send the POST request
-    response = requests.post(endpoint_url, json=request_body)
-    
-    # Handle the response as needed
-    if response.status_code == 200:
-        # Flight booked successfully
-        return "Flight booked successfully"
-    else:
-        # Handle the error
-        return "Failed to book the flight"
+    # Making the POST request
+    response = requests.post(url, json=payload, headers={'accept': 'application/json'})
+    return response.json()
+
+def retrieve_flightnumbers_flightid(flight_number: str):
+    try:
+        query = DATABASE_SESSION.query(Flight).filter(Flight.flight_number == flight_number)
+        flight = query.first()        
+        if flight:
+            return flight.flight_id
+        else:
+            return None
+    except Exception as e:
+        print(f"Error found in retrieve_flightnumbers_flightid: {e}")
+        return None

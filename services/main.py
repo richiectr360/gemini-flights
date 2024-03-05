@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
 
-from flight_manager import generate_flights, handle_flight_search, handle_flight_book
+from flight_manager import generate_flights, handle_flight_search, handle_flight_book, DATABASE_SESSION
 import models as models
 
 # Configure logging
